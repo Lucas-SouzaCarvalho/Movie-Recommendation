@@ -1,0 +1,12 @@
+POST http://127.0.0.1:8000/api/token/ HTTP/1.1
+content-type: application/json
+
+{
+    "username" : "teste",
+    "password" : "teste"
+}
+
+###
+GET http://127.0.0.1:8000/watched-list/ HTTP/1.1
+content-type: application/json
+authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzE0NjU1MzM0LCJpYXQiOjE3MTQ2NTUwMzQsImp0aSI6IjZjZDY4NWQyNTU2YjRhZTNiNjA5ZTYzNGQ5YjA3ODVhIiwidXNlcl9pZCI6MX0.s6Gt-ML-ME8L6ptyqqebnFW5uFf7TZMPw5KDp0rCg6s
