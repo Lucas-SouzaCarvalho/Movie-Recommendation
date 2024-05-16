@@ -1,7 +1,7 @@
 from rest_framework import viewsets, permissions, status, filters, generics
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.permissions import AllowAny
 from .models import Genre, Movie, WatchedList, Rating
 from .serializers import GenreSerializer, MovieSerializer, UserRegistrationSerializer, UserSerializer, WatchedListSerializer, RatingSerializer
@@ -126,3 +126,21 @@ class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [AllowAny]  # Corrected permission class to use the UserRegistrationSerializer
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.user
+        response.data['username'] = user.username
+        return response
+
+class CustomTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.user
+        response.data['username'] = user.username
+        return response

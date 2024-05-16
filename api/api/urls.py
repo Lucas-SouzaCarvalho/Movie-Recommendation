@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from movie.apriori import MovieRecommendationView
-from movie.views import GenreViewSet, MovieViewSet, RatingViewSet, UserRegistrationView, UserViewSet, WatchedListViewSet, logout
+from movie.views import GenreViewSet, MovieViewSet, RatingViewSet, UserRegistrationView, UserViewSet, WatchedListViewSet, logout, CustomTokenObtainPairView, CustomTokenRefreshView
 from django.contrib.auth import views as auth_views
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -18,8 +18,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('register/', UserRegistrationView.as_view(), name='register'),
     path('logout/', logout, name='logout'),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
     path('recommendations/', MovieRecommendationView.as_view(), name='movie_recommendations'),
     path('users/<int:pk>/add-favorite-genre/', UserViewSet.as_view({'post': 'add_favorite_genre'}), name='add_favorite_genre'),
     path('users/<int:pk>/remove-favorite-genre/', UserViewSet.as_view({'post': 'remove_favorite_genre'}), name='remove_favorite_genre'),
