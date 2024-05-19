@@ -8,7 +8,7 @@ class Genre(models.Model):
 class Movie(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
-    release_date = models.DateField()
+    release_date = models.DateField(null = True)
     genres = models.ManyToManyField(Genre)  # Many-to-many relationship with Genre
     poster_url = models.URLField(max_length=200, null=True, blank=True)
 

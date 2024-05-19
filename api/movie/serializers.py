@@ -20,11 +20,11 @@ class GenreSerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 class MovieSerializer(serializers.ModelSerializer):
-    genre = serializers.PrimaryKeyRelatedField(queryset=Genre.objects.all())
+    genres = serializers.PrimaryKeyRelatedField(many = True, queryset=Genre.objects.all())
 
     class Meta:
         model = Movie
-        fields = ['id', 'title', 'description', 'release_date', 'genre', 'poster_url']
+        fields = ['id', 'title', 'description', 'release_date', 'genres', 'poster_url']
 
 class UserSerializer(serializers.ModelSerializer):
     favorite_genres = GenreSerializer(many=True, read_only=True)

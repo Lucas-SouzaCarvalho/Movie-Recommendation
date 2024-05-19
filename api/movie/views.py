@@ -4,9 +4,11 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import get_user_model
 from django.db.models import Avg
+#from django_filters.rest_framework import DjangoFilterBackend
 from .models import Genre, Movie, WatchedList, Rating
 from .serializers import (
     GenreSerializer, MovieSerializer, UserRegistrationSerializer, 
@@ -85,7 +87,12 @@ class GenreViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
+    #permission_classes = [permissions.IsAuthenticated]
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Movie.objects.all()
@@ -93,12 +100,13 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
     ordering_fields = ['title', 'release_date']
     search_fields = ['title', 'description']
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         queryset = super().get_queryset()
         genre = self.request.query_params.get('genre')
         if genre:
-            queryset = queryset.filter(genre__name=genre)
+            queryset = queryset.filter(genres__name__iexact=genre.strip())
         return queryset
 
 class WatchedListViewSet(viewsets.ModelViewSet):
