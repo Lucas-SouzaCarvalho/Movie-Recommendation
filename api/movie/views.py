@@ -2,14 +2,18 @@ from rest_framework import viewsets, permissions, status, filters, generics
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from rest_framework.permissions import AllowAny
-from .models import Genre, Movie, WatchedList, Rating
-from .serializers import GenreSerializer, MovieSerializer, UserRegistrationSerializer, UserSerializer, WatchedListSerializer, RatingSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import get_user_model  # Import get_user_model function
+from rest_framework.permissions import AllowAny
+from django.contrib.auth import get_user_model
+from django.db.models import Avg
+from .models import Genre, Movie, WatchedList, Rating
+from .serializers import (
+    GenreSerializer, MovieSerializer, UserRegistrationSerializer, 
+    UserSerializer, WatchedListSerializer, RatingSerializer
+)
 
-User = get_user_model()  # Get the custom user model
+User = get_user_model()
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -18,20 +22,27 @@ def logout(request):
         refresh_token = request.data['refresh']
         token = RefreshToken(refresh_token)
         token.blacklist()
-        return Response({"success": "User logged out successfully."}, status=200)
+        return Response({"success": "User logged out successfully."}, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({"error": str(e)}, status=400)
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all()
     serializer_class = UserSerializer
-    authentication_classes = [JWTAuthentication]  # Add JWT authentication
+    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @action(detail=True, methods=['post'])
+    def get_queryset(self):
+        # Return a queryset containing only the current user
+        return User.objects.filter(id=self.request.user.id)
+
+    def get_object(self):
+        # Return the current user instance
+        return self.request.user
+
+    @action(detail=True, methods=['post'], url_path='add-favorite-genre')
     def add_favorite_genre(self, request, pk=None):
         user = self.get_object()
-        genre_ids = request.data.get('genre_ids', [])  # Accepts a list of genre_ids
+        genre_ids = request.data.get('genre_ids', [])
         added_genres = []
 
         for genre_id in genre_ids:
@@ -40,16 +51,16 @@ class UserViewSet(viewsets.ModelViewSet):
                 user.favorite_genres.add(genre)
                 added_genres.append(genre.name)
             except Genre.DoesNotExist:
-                pass  # Handle the case where the genre ID is invalid
+                continue
 
         user.save()
-        
+
         if added_genres:
             return Response({'status': f'Genres {", ".join(added_genres)} added to favorites'})
         else:
             return Response({'error': 'No valid genre IDs provided'}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], url_path='remove-favorite-genre')
     def remove_favorite_genre(self, request, pk=None):
         user = self.get_object()
         genre_ids = request.data.get('genre_ids', [])
@@ -61,7 +72,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 user.favorite_genres.remove(genre)
                 removed_genres.append(genre.name)
             except Genre.DoesNotExist:
-                pass  # Handle the case where the genre ID is invalid
+                continue
 
         user.save()
 
@@ -73,59 +84,52 @@ class UserViewSet(viewsets.ModelViewSet):
 class GenreViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
-    authentication_classes = [JWTAuthentication]  # Add JWT authentication
+    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
 class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Movie.objects.all()
     serializer_class = MovieSerializer
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
-    ordering_fields = ['title', 'release_date', 'director']
-    search_fields = ['title', 'description', 'director']
+    ordering_fields = ['title', 'release_date']
+    search_fields = ['title', 'description']
 
     def get_queryset(self):
-        queryset = Movie.objects.all()
+        queryset = super().get_queryset()
         genre = self.request.query_params.get('genre')
         if genre:
             queryset = queryset.filter(genre__name=genre)
-        # Add more filters as needed (e.g., release date range)
-
         return queryset
 
 class WatchedListViewSet(viewsets.ModelViewSet):
     queryset = WatchedList.objects.all()
     serializer_class = WatchedListSerializer
-    authentication_classes = [JWTAuthentication]  # Add JWT authentication
+    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        if isinstance(user, str):  # If user is a string (username), convert it to User instance
-            try:
-                user = User.objects.get(username=user)
-            except User.DoesNotExist:
-                return WatchedList.objects.none()  # Return empty queryset if user does not exist
         return WatchedList.objects.filter(user=user)
 
 class RatingViewSet(viewsets.ModelViewSet):
     queryset = Rating.objects.all()
     serializer_class = RatingSerializer
-    authentication_classes = [JWTAuthentication]  # Add JWT authentication
+    authentication_classes = [JWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        if isinstance(user, str):  # If user is a string (username), convert it to User instance
-            try:
-                user = User.objects.get(username=user)
-            except User.DoesNotExist:
-                return Rating.objects.none()  # Return empty queryset if user does not exist
         return Rating.objects.filter(user=user)
+    
+    @action(detail=False, methods=['get'], url_path='average-ratings')
+    def average_ratings(self, request):
+        average_ratings = Rating.objects.values('movie').annotate(avg_rating=Avg('rating')).order_by('-avg_rating')
+        return Response(average_ratings, status=status.HTTP_200_OK)
 
 class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
-    permission_classes = [AllowAny]  # Corrected permission class to use the UserRegistrationSerializer
+    permission_classes = [AllowAny]
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):

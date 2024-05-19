@@ -24,23 +24,44 @@ class MovieSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Movie
-        fields = ['id', 'title', 'description', 'release_date', 'genre', 'director', 'poster_url']
+        fields = ['id', 'title', 'description', 'release_date', 'genre', 'poster_url']
 
 class UserSerializer(serializers.ModelSerializer):
+    favorite_genres = GenreSerializer(many=True, read_only=True)
+    favorite_genres_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Genre.objects.all(), source='favorite_genres', write_only=True, many=True
+    )
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'favorite_genres']
+        fields = ['id', 'username', 'email', 'favorite_genres', 'favorite_genres_ids']
 
 class WatchedListSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())  # Assuming user is a ForeignKey
+    movie = MovieSerializer(read_only=True)
+    movie_id = serializers.PrimaryKeyRelatedField(
+        queryset=Movie.objects.all(), source='movie', write_only=True
+    )
 
     class Meta:
         model = WatchedList
-        fields = ['id', 'user', 'movie', 'watched_date']
+        fields = ['id', 'user', 'movie', 'movie_id', 'watched_date']
+        read_only_fields = ['user', 'watched_date']
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
 
 class RatingSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())  # Assuming user is a ForeignKey
+    movie = MovieSerializer(read_only=True)
+    movie_id = serializers.PrimaryKeyRelatedField(
+        queryset=Movie.objects.all(), source='movie', write_only=True
+    )
 
     class Meta:
         model = Rating
-        fields = ['id', 'user', 'movie', 'rating']
+        fields = ['id', 'user', 'movie', 'movie_id', 'rating']
+        read_only_fields = ['user']
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)

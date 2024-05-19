@@ -2,11 +2,11 @@ from mlxtend.frequent_patterns import apriori, association_rules
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import WatchedList
-from .serializers import WatchedListSerializer
-import pandas as pd
+from django.db.models import Count, Avg
+from .models import Movie, WatchedList, Rating
+import pandas as pd 
 
-class MovieRecommendationView(APIView):
+class AprioriRecommendationView(APIView):
     def get(self, request):
         try:
             # Retrieve watched movies data for all users
@@ -30,17 +30,42 @@ class MovieRecommendationView(APIView):
 
             # Generate recommendations
             rules = association_rules(frequent_itemsets, metric="lift", min_threshold=1)
-            recommendations = {}
+            apriori_recommendations = {}
             for idx, row in rules.iterrows():
                 if len(row['antecedents']) == 1:
                     movie_id = row['antecedents'].pop()
                     consequent = row['consequents'].pop()
                     support = row['support']
                     confidence = row['confidence']
-                    if movie_id not in recommendations:
-                        recommendations[movie_id] = []
-                    recommendations[movie_id].append({'movie_id': consequent, 'support': support, 'confidence': confidence})
+                    if movie_id not in apriori_recommendations:
+                        apriori_recommendations[movie_id] = []
+                    apriori_recommendations[movie_id].append({'movie_id': consequent, 'support': support, 'confidence': confidence})
 
-            return Response(recommendations, status=status.HTTP_200_OK)
+            return Response(apriori_recommendations, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class GenreRecommendationView(APIView):
+    def get(self, request):
+        try:
+            # Get the user's favorite genres
+            favorite_genres = request.user.favorite_genres.all()
+
+            # Find movies belonging to the user's favorite genres that the user hasn't watched
+            recommended_movies = Movie.objects.filter(genres__in=favorite_genres).exclude(watched__user=request.user)
+
+            return Response(recommended_movies.values('id', 'title', 'description', 'release_date', 'poster_url'), status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RatingRecommendationView(APIView):
+    def get(self, request):
+        try:
+            highest_rated_movies = Rating.objects.values('movie').annotate(avg_rating=Avg('rating')).order_by('-avg_rating')[:10]
+
+            # Exclude movies the user has already watched
+            recommended_movies = Movie.objects.exclude(rating__user=request.user, id__in=[movie['movie'] for movie in highest_rated_movies])
+
+            return Response(recommended_movies.values('id', 'title', 'description', 'release_date', 'poster_url'), status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

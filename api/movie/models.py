@@ -9,8 +9,7 @@ class Movie(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     release_date = models.DateField()
-    genre = models.ForeignKey(Genre, on_delete=models.CASCADE)
-    director = models.CharField(max_length=255)
+    genres = models.ManyToManyField(Genre)  # Many-to-many relationship with Genre
     poster_url = models.URLField(max_length=200, null=True, blank=True)
 
 class User(AbstractUser):
