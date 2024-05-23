@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from movie.views import (
     GenreViewSet, MovieViewSet, RatingViewSet, UserRegistrationView, 
     UserViewSet, WatchedListViewSet, logout, CustomTokenObtainPairView, 
-    CustomTokenRefreshView
+    CustomTokenRefreshView, MovieDetailView
 )
 from movie.apriori import AprioriRecommendationView, GenreRecommendationView, RatingRecommendationView
 
@@ -22,6 +22,7 @@ urlpatterns = [
     path('logout/', logout, name='logout'),
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', CustomTokenRefreshView.as_view(), name='token_refresh'),
+    path('movies/<int:pk>/', MovieDetailView.as_view(), name='movie-detail'),
     path('recommendations/apriori/', AprioriRecommendationView.as_view(), name='apriori_recommendations'),
     path('recommendations/genre/', GenreRecommendationView.as_view(), name='genre_recommendations'),
     path('recommendations/rating/', RatingRecommendationView.as_view(), name='rating_recommendations'),

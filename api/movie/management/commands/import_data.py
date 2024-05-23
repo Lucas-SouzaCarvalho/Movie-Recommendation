@@ -11,39 +11,59 @@ class Command(BaseCommand):
         file_path = r'C:\Users\lucas\Downloads\modified_file.csv'
         df = pd.read_csv(file_path)
 
-        # Iterate through DataFrame rows and import data
+        batch_size = 1000  # You can adjust the batch size based on your requirements
+        movies_to_create = []
+        genres_to_add = {}
+
         for index, row in df.iterrows():
-            # Extract data from the row
-            
             title = row['title']
             description = row['overview']
-            
+
             try:
                 release_date = datetime.strptime(row['release_date'], '%Y-%m-%d').date()
-            
             except (ValueError, TypeError):
                 release_date = None  # Handle invalid or missing date
-            
+
             poster_url = row['poster_path']
 
-            # Create a Movie instance and populate it with the extracted data
-            movie = Movie.objects.create(
+            movie = Movie(
                 title=title,
                 description=description,
                 release_date=release_date,
                 poster_url=poster_url
             )
 
-            # Extract genre data and create Genre instances if necessary
+            movies_to_create.append(movie)
+
             genres = row['genres']
             if isinstance(genres, str):
                 genres = genres.split('-')
                 for genre_name in genres:
-                    genre, _ = Genre.objects.get_or_create(name=genre_name.strip())
-                    movie.genres.add(genre)
+                    genre_name = genre_name.strip()
+                    if genre_name not in genres_to_add:
+                        genres_to_add[genre_name] = []
+                    genres_to_add[genre_name].append(movie)
 
-            # Save the Movie instance to the database
-            movie.save()
+            # Batch insert movies
+            if len(movies_to_create) >= batch_size:
+                self._bulk_create_movies(movies_to_create, genres_to_add)
+                movies_to_create = []
+                genres_to_add = {}
 
+        # Insert any remaining movies
+        if movies_to_create:
+            self._bulk_create_movies(movies_to_create, genres_to_add)
 
         self.stdout.write(self.style.SUCCESS('Data imported successfully'))
+
+    def _bulk_create_movies(self, movies_to_create, genres_to_add):
+        Movie.objects.bulk_create(movies_to_create)
+        
+        # After movies are created, handle genre associations
+        for genre_name, movies in genres_to_add.items():
+            genre, _ = Genre.objects.get_or_create(name=genre_name)
+            for movie in movies:
+                movie.genres.add(genre)
+                movie.save()
+
+        self.stdout.write(self.style.SUCCESS('Batch imported successfully'))

@@ -6,6 +6,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.db.models import Avg
 #from django_filters.rest_framework import DjangoFilterBackend
@@ -16,6 +17,16 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+class MovieDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            movie = Movie.objects.get(pk=pk)
+        except Movie.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = MovieSerializer(movie)
+        return Response(serializer.data)
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -87,12 +98,13 @@ class GenreViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
     authentication_classes = [JWTAuthentication]
-    #permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
+
 
 class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Movie.objects.all()
@@ -101,6 +113,7 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['title', 'release_date']
     search_fields = ['title', 'description']
     pagination_class = StandardResultsSetPagination
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         queryset = super().get_queryset()
