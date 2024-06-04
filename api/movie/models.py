@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Permission, Group
 
+
 # Create your models here.
 class Genre(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -8,9 +9,20 @@ class Genre(models.Model):
 class Movie(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
-    release_date = models.DateField(null = True)
-    genres = models.ManyToManyField(Genre)  # Many-to-many relationship with Genre
+    release_date = models.DateField(null=True)
+    genres = models.ManyToManyField(Genre)
     poster_url = models.URLField(max_length=200, null=True, blank=True)
+    original_language = models.CharField(max_length=50, null=True, blank=True)
+    production_companies = models.TextField(null=True, blank=True)
+    runtime = models.PositiveIntegerField(null=True, blank=True)
+    status = models.CharField(max_length=50, null=True, blank=True)
+    tagline = models.CharField(max_length=255, null=True, blank=True)
+    credit = models.TextField(null=True, blank=True)
+    keywords = models.TextField(null=True, blank=True)
+    backdrop_path = models.URLField(max_length=200, null=True, blank=True)
+
+    def __str__(self):
+        return self.title
 
 class User(AbstractUser):
     favorite_genres = models.ManyToManyField(Genre, related_name='users', blank=True)

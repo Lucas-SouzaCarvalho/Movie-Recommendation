@@ -4,7 +4,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Count, Avg
 from .models import Movie, WatchedList, Rating
-import pandas as pd 
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 class AprioriRecommendationView(APIView):
     def get(self, request):
@@ -52,11 +54,18 @@ class GenreRecommendationView(APIView):
             favorite_genres = request.user.favorite_genres.all()
 
             # Find movies belonging to the user's favorite genres that the user hasn't watched
-            recommended_movies = Movie.objects.filter(genres__in=favorite_genres).exclude(watched__user=request.user)
+            recommended_movies = (
+                Movie.objects
+                .filter(genres__in=favorite_genres)
+                .exclude(watched__user=request.user)
+                .annotate(avg_rating=Avg('rating__rating'))
+                .order_by('-avg_rating')
+            )
 
             return Response(recommended_movies.values('id', 'title', 'description', 'release_date', 'poster_url'), status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class RatingRecommendationView(APIView):
     def get(self, request):
@@ -67,5 +76,49 @@ class RatingRecommendationView(APIView):
             recommended_movies = Movie.objects.exclude(rating__user=request.user, id__in=[movie['movie'] for movie in highest_rated_movies])
 
             return Response(recommended_movies.values('id', 'title', 'description', 'release_date', 'poster_url'), status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class SimilarityRecommendationView(APIView):
+    def get(self, request, movie_id):
+        try:
+            target_movie = Movie.objects.get(id=movie_id)
+
+            # Collect all movies data (title, keywords, genres) except for the target movie
+            all_movies = Movie.objects.exclude(id=movie_id)
+            movie_data = []
+            for movie in all_movies:
+                keywords = movie.keywords.split('-')
+                movie_data.append({
+                    'id': movie.id,
+                    'title': movie.title,
+                    'keywords': keywords,
+                    'genres': [genre.name for genre in movie.genres.all()],
+                })
+
+            # Prepare TF-IDF vectors for each movie
+            documents = [f"{movie['title']} {' '.join(movie['keywords'])} {' '.join(movie['genres'])}" for movie in movie_data]
+            tfidf_vectorizer = TfidfVectorizer(tokenizer=lambda text: text.split(), lowercase=False)
+            tfidf_matrix = tfidf_vectorizer.fit_transform(documents)
+            target_document = f"{target_movie.title} {' '.join(target_movie.keywords.split('-'))} {' '.join([genre.name for genre in target_movie.genres.all()])}"
+            target_vector = tfidf_vectorizer.transform([target_document])
+
+            # Calculate cosine similarity between the target movie and all other movies
+            similarity_scores = cosine_similarity(target_vector, tfidf_matrix)
+
+            # Sort movies by similarity score
+            sorted_indices = similarity_scores.argsort(axis=1).flatten()[::-1]
+            recommendations = []
+            for index in sorted_indices:
+                movie = movie_data[index]
+                recommendations.append({
+                    'id': movie['id'],
+                    'title': movie['title'],
+                    'keywords': movie['keywords'],
+                    'genres': movie['genres'],
+                    'similarity_score': similarity_scores[0, index],
+                })
+
+            return Response(recommendations[:10], status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

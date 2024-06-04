@@ -6,7 +6,7 @@ from movie.views import (
     UserViewSet, WatchedListViewSet, logout, CustomTokenObtainPairView, 
     CustomTokenRefreshView, MovieDetailView
 )
-from movie.apriori import AprioriRecommendationView, GenreRecommendationView, RatingRecommendationView
+from movie.apriori import AprioriRecommendationView, GenreRecommendationView, RatingRecommendationView, SimilarityRecommendationView
 
 # Create a router and register viewsets
 router = DefaultRouter()
@@ -26,6 +26,7 @@ urlpatterns = [
     path('recommendations/apriori/', AprioriRecommendationView.as_view(), name='apriori_recommendations'),
     path('recommendations/genre/', GenreRecommendationView.as_view(), name='genre_recommendations'),
     path('recommendations/rating/', RatingRecommendationView.as_view(), name='rating_recommendations'),
+    path('recommendations/similarity/<int:movie_id>/', SimilarityRecommendationView.as_view(), name='similarity_recommendations'),
     path('users/<int:pk>/add-favorite-genre/', UserViewSet.as_view({'post': 'add_favorite_genre'}), name='add_favorite_genre'),
     path('users/<int:pk>/remove-favorite-genre/', UserViewSet.as_view({'post': 'remove_favorite_genre'}), name='remove_favorite_genre'),
     path('', include(router.urls)),  # Includes all routes registered with the router

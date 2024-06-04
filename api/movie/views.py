@@ -9,7 +9,6 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.db.models import Avg
-#from django_filters.rest_framework import DjangoFilterBackend
 from .models import Genre, Movie, WatchedList, Rating
 from .serializers import (
     GenreSerializer, MovieSerializer, UserRegistrationSerializer, 
@@ -32,10 +31,13 @@ class MovieDetailView(APIView):
 @permission_classes([AllowAny])
 def logout(request):
     try:
-        refresh_token = request.data['refresh']
-        token = RefreshToken(refresh_token)
-        token.blacklist()
-        return Response({"success": "User logged out successfully."}, status=status.HTTP_200_OK)
+        refresh_token = request.data.get('refresh')
+        if refresh_token:
+            token = RefreshToken(refresh_token)
+            token.outstanding_token = None  # Invalidate the refresh token
+            return Response({"success": "User logged out successfully."}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Refresh token not provided"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -111,7 +113,7 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = MovieSerializer
     filter_backends = [filters.OrderingFilter, filters.SearchFilter]
     ordering_fields = ['title', 'release_date']
-    search_fields = ['title', 'description']
+    search_fields = ['title', 'description', 'production_companies', 'credit', 'genres__name']
     pagination_class = StandardResultsSetPagination
     permission_classes = [AllowAny]
 
@@ -120,6 +122,17 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
         genre = self.request.query_params.get('genre')
         if genre:
             queryset = queryset.filter(genres__name__iexact=genre.strip())
+        
+        production_companies = self.request.query_params.get('production_companies')
+        if production_companies:
+            company_names = production_companies.split('-')
+            queryset = queryset.filter(production_companies__icontains__in=company_names)
+        
+        credit = self.request.query_params.get('credit')
+        if credit:
+            credit_names = credit.split('-')
+            queryset = queryset.filter(credit__icontains__in=credit_names)
+
         return queryset
 
 class WatchedListViewSet(viewsets.ModelViewSet):
