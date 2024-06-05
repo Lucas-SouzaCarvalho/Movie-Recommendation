@@ -222,6 +222,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         serializer.is_valid(raise_exception=True)
         user = serializer.user
         response.data['username'] = user.username
+        response.data['id'] = user.id
         return response
 
 class CustomTokenRefreshView(TokenRefreshView):
@@ -231,4 +232,5 @@ class CustomTokenRefreshView(TokenRefreshView):
         serializer.is_valid(raise_exception=True)
         user = serializer.user
         response.data['username'] = user.username
+        response.data['id'] = user.id
         return response
