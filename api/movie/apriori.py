@@ -91,16 +91,14 @@ class SimilarityRecommendationView(APIView):
                 keywords = movie.keywords.split('-')
                 movie_data.append({
                     'id': movie.id,
-                    'title': movie.title,
                     'keywords': keywords,
-                    'genres': [genre.name for genre in movie.genres.all()],
                 })
 
             # Prepare TF-IDF vectors for each movie
-            documents = [f"{movie['title']} {' '.join(movie['keywords'])} {' '.join(movie['genres'])}" for movie in movie_data]
+            documents = [f"{movie['keywords']}" for movie in movie_data]
             tfidf_vectorizer = TfidfVectorizer(tokenizer=lambda text: text.split(), lowercase=False)
             tfidf_matrix = tfidf_vectorizer.fit_transform(documents)
-            target_document = f"{target_movie.title} {' '.join(target_movie.keywords.split('-'))} {' '.join([genre.name for genre in target_movie.genres.all()])}"
+            target_document = f"{target_movie.keywords.split('-')}"
             target_vector = tfidf_vectorizer.transform([target_document])
 
             # Calculate cosine similarity between the target movie and all other movies
@@ -113,9 +111,7 @@ class SimilarityRecommendationView(APIView):
                 movie = movie_data[index]
                 recommendations.append({
                     'id': movie['id'],
-                    'title': movie['title'],
                     'keywords': movie['keywords'],
-                    'genres': movie['genres'],
                     'similarity_score': similarity_scores[0, index],
                 })
 

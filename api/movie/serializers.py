@@ -26,7 +26,7 @@ class MovieSerializer(serializers.ModelSerializer):
         model = Movie
         fields = ['id', 'title', 'description', 'release_date', 'genres', 'poster_url',
                   'original_language', 'production_companies', 'runtime', 'status',
-                  'tagline', 'credits', 'keywords', 'backdrop_path']
+                  'tagline', 'credit', 'keywords', 'backdrop_path']
 
 
 class UserSerializer(serializers.ModelSerializer):

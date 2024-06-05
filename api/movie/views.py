@@ -8,7 +8,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
-from django.db.models import Avg
+from django.db.models import Avg, Q
 from .models import Genre, Movie, WatchedList, Rating
 from .serializers import (
     GenreSerializer, MovieSerializer, UserRegistrationSerializer, 
@@ -126,12 +126,34 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
         production_companies = self.request.query_params.get('production_companies')
         if production_companies:
             company_names = production_companies.split('-')
-            queryset = queryset.filter(production_companies__icontains__in=company_names)
+            queries = [Q(production_companies__icontains=company.strip()) for company in company_names]
+            query = queries.pop()
+            for item in queries:
+                query |= item
+            queryset = queryset.filter(query)
         
         credit = self.request.query_params.get('credit')
         if credit:
             credit_names = credit.split('-')
-            queryset = queryset.filter(credit__icontains__in=credit_names)
+            queries = [Q(credit__icontains=name.strip()) for name in credit_names]
+            query = queries.pop()
+            for item in queries:
+                query |= item
+            queryset = queryset.filter(query)
+
+        search = self.request.query_params.get('search')
+        if search:
+            search_queries = [
+                Q(title__icontains=search),
+                Q(description__icontains=search),
+                Q(production_companies__icontains=search),
+                Q(credit__icontains=search),
+                Q(genres__name__icontains=search),
+            ]
+            search_query = search_queries.pop()
+            for item in search_queries:
+                search_query |= item
+            queryset = queryset.filter(search_query)
 
         return queryset
 
