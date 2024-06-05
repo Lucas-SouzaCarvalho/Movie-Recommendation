@@ -54,6 +54,17 @@ class WatchedListSerializer(serializers.ModelSerializer):
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
 
+class AddWatchedListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WatchedList
+        fields = ['movie']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        movie = validated_data.get('movie')
+        watched_movie, created = WatchedList.objects.get_or_create(user=user, movie=movie)
+        return watched_movie
+
 class RatingSerializer(serializers.ModelSerializer):
     movie = MovieSerializer(read_only=True)
     movie_id = serializers.PrimaryKeyRelatedField(

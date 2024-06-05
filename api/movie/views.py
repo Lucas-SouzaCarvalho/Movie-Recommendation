@@ -12,7 +12,7 @@ from django.db.models import Avg, Q
 from .models import Genre, Movie, WatchedList, Rating
 from .serializers import (
     GenreSerializer, MovieSerializer, UserRegistrationSerializer, 
-    UserSerializer, WatchedListSerializer, RatingSerializer
+    UserSerializer, WatchedListSerializer, RatingSerializer, AddWatchedListSerializer
 )
 
 User = get_user_model()
@@ -155,7 +155,7 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
                 search_query |= item
             queryset = queryset.filter(search_query)
 
-        return queryset
+        return queryset.distinct()
 
 class WatchedListViewSet(viewsets.ModelViewSet):
     queryset = WatchedList.objects.all()
@@ -166,6 +166,34 @@ class WatchedListViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         return WatchedList.objects.filter(user=user)
+    
+class AddToWatchedListView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = AddWatchedListSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Movie added to watched list successfully."}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class RemoveFromWatchedListView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        movie_id = request.data.get('movie_id')
+        if not movie_id:
+            return Response({"error": "movie_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        try:
+            watched_list_entry = WatchedList.objects.get(user=user, movie_id=movie_id)
+            watched_list_entry.delete()
+            return Response({"message": "Movie removed from watched list successfully."}, status=status.HTTP_200_OK)
+        except WatchedList.DoesNotExist:
+            return Response({"error": "Movie not found in your watched list"}, status=status.HTTP_404_NOT_FOUND)
 
 class RatingViewSet(viewsets.ModelViewSet):
     queryset = Rating.objects.all()

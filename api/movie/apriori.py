@@ -82,23 +82,27 @@ class RatingRecommendationView(APIView):
 class SimilarityRecommendationView(APIView):
     def get(self, request, movie_id):
         try:
+            # Fetch the target movie
             target_movie = Movie.objects.get(id=movie_id)
+            target_keywords = target_movie.keywords.split('-')
 
-            # Collect all movies data (title, keywords, genres) except for the target movie
+            # Collect all movies data (id, title, poster_url, keywords) except for the target movie
             all_movies = Movie.objects.exclude(id=movie_id)
             movie_data = []
             for movie in all_movies:
                 keywords = movie.keywords.split('-')
                 movie_data.append({
                     'id': movie.id,
-                    'keywords': keywords,
+                    'title': movie.title,
+                    'poster_url': movie.poster_url,
+                    'keywords': " ".join(keywords),
                 })
 
             # Prepare TF-IDF vectors for each movie
-            documents = [f"{movie['keywords']}" for movie in movie_data]
+            documents = [movie['keywords'] for movie in movie_data]
             tfidf_vectorizer = TfidfVectorizer(tokenizer=lambda text: text.split(), lowercase=False)
             tfidf_matrix = tfidf_vectorizer.fit_transform(documents)
-            target_document = f"{target_movie.keywords.split('-')}"
+            target_document = " ".join(target_keywords)
             target_vector = tfidf_vectorizer.transform([target_document])
 
             # Calculate cosine similarity between the target movie and all other movies
@@ -111,10 +115,13 @@ class SimilarityRecommendationView(APIView):
                 movie = movie_data[index]
                 recommendations.append({
                     'id': movie['id'],
-                    'keywords': movie['keywords'],
+                    'title': movie['title'],
+                    'poster_url': movie['poster_url'],
                     'similarity_score': similarity_scores[0, index],
                 })
 
             return Response(recommendations[:10], status=status.HTTP_200_OK)
+        except Movie.DoesNotExist:
+            return Response({'error': 'Movie not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

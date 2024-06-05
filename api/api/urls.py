@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from movie.views import (
     GenreViewSet, MovieViewSet, RatingViewSet, UserRegistrationView, 
     UserViewSet, WatchedListViewSet, logout, CustomTokenObtainPairView, 
-    CustomTokenRefreshView, MovieDetailView
+    CustomTokenRefreshView, MovieDetailView, AddToWatchedListView, RemoveFromWatchedListView
 )
 from movie.apriori import AprioriRecommendationView, GenreRecommendationView, RatingRecommendationView, SimilarityRecommendationView
 
@@ -29,5 +29,7 @@ urlpatterns = [
     path('recommendations/similarity/<int:movie_id>/', SimilarityRecommendationView.as_view(), name='similarity_recommendations'),
     path('users/<int:pk>/add-favorite-genre/', UserViewSet.as_view({'post': 'add_favorite_genre'}), name='add_favorite_genre'),
     path('users/<int:pk>/remove-favorite-genre/', UserViewSet.as_view({'post': 'remove_favorite_genre'}), name='remove_favorite_genre'),
+    path('watched-list/add/', AddToWatchedListView.as_view(), name='add-to-watched-list'),
+    path('watched-list/remove/', RemoveFromWatchedListView.as_view(), name='remove-from-watched-list'),
     path('', include(router.urls)),  # Includes all routes registered with the router
 ]
