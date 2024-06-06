@@ -12,7 +12,7 @@ from django.db.models import Avg, Q
 from .models import Genre, Movie, WatchedList, Rating
 from .serializers import (
     GenreSerializer, MovieSerializer, UserRegistrationSerializer, 
-    UserSerializer, WatchedListSerializer, RatingSerializer, AddWatchedListSerializer
+    UserSerializer, WatchedListSerializer, RatingSerializer, AddWatchedListSerializer, CustomTokenRefreshSerializer
 )
 
 User = get_user_model()
@@ -226,11 +226,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         return response
 
 class CustomTokenRefreshView(TokenRefreshView):
+    serializer_class = CustomTokenRefreshSerializer
+
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.user
-        response.data['username'] = user.username
-        response.data['id'] = user.id
         return response

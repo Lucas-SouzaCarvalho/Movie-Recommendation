@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import Genre, Movie, WatchedList, Rating
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()  # Get the custom user model
 
@@ -79,3 +81,16 @@ class RatingSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
+
+class CustomTokenRefreshSerializer(TokenRefreshSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        refresh = RefreshToken(attrs['refresh'])
+
+        user_id = refresh.payload.get('user_id')
+        user = User.objects.get(id=user_id)
+        
+        data['username'] = user.username
+        data['id'] = user.id
+
+        return data
