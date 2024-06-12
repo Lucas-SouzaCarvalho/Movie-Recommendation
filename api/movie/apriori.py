@@ -1,12 +1,14 @@
 from mlxtend.frequent_patterns import apriori, association_rules
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.db.models import Count, Avg
 from .models import Movie, WatchedList, Rating
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from serializers import MovieSerializer
 
 class AprioriRecommendationView(APIView):
     def get(self, request):
@@ -48,6 +50,9 @@ class AprioriRecommendationView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GenreRecommendationView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
         try:
             # Get the user's favorite genres
@@ -57,12 +62,15 @@ class GenreRecommendationView(APIView):
             recommended_movies = (
                 Movie.objects
                 .filter(genres__in=favorite_genres)
-                .exclude(watched__user=request.user)
+                .exclude(watchedlist__user=request.user)
                 .annotate(avg_rating=Avg('rating__rating'))
                 .order_by('-avg_rating')
             )
 
-            return Response(recommended_movies.values('id', 'title', 'description', 'release_date', 'poster_url'), status=status.HTTP_200_OK)
+            # Serialize the recommended movies
+            serializer = MovieSerializer(recommended_movies, many=True)
+
+            return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

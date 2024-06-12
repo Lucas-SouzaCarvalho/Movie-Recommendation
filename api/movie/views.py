@@ -9,6 +9,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.db.models import Avg, Q
+from django.shortcuts import get_object_or_404
 from .models import Genre, Movie, WatchedList, Rating
 from .serializers import (
     GenreSerializer, MovieSerializer, UserRegistrationSerializer, 
@@ -204,6 +205,26 @@ class RatingViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         return Rating.objects.filter(user=user)
+
+    @action(detail=False, methods=['post'], url_path='rate-movie')
+    def rate_movie(self, request):
+        movie_id = request.data.get('movie_id')
+        rating_value = request.data.get('rating')
+
+        if not movie_id or rating_value is None:
+            return Response({"error": "movie_id and rating are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        movie = get_object_or_404(Movie, id=movie_id)
+        rating, created = Rating.objects.update_or_create(
+            user=request.user,
+            movie=movie,
+            defaults={'rating': rating_value}
+        )
+
+        if created:
+            return Response({"message": "Movie rated successfully."}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"message": "Movie rating updated successfully."}, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'], url_path='average-ratings')
     def average_ratings(self, request):
