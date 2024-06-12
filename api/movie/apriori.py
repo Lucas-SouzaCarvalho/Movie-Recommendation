@@ -8,7 +8,7 @@ from .models import Movie, WatchedList, Rating
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from serializers import MovieSerializer
+from movie.serializers import MovieSerializer
 
 class AprioriRecommendationView(APIView):
     def get(self, request):
