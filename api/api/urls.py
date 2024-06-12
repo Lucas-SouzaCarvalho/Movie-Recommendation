@@ -4,7 +4,8 @@ from rest_framework.routers import DefaultRouter
 from movie.views import (
     GenreViewSet, MovieViewSet, RatingViewSet, UserRegistrationView, 
     UserViewSet, WatchedListViewSet, logout, CustomTokenObtainPairView, 
-    CustomTokenRefreshView, MovieDetailView, AddToWatchedListView, RemoveFromWatchedListView
+    CustomTokenRefreshView, MovieDetailView, AddToWatchedListView, 
+    RemoveFromWatchedListView, AverageRatingView, UserMovieRatingView
 )
 from movie.apriori import AprioriRecommendationView, GenreRecommendationView, RatingRecommendationView, SimilarityRecommendationView
 
@@ -18,6 +19,7 @@ router.register(r'ratings', RatingViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('average-ratings/', AverageRatingView.as_view(), name='average-ratings'),
     path('register/', UserRegistrationView.as_view(), name='register'),
     path('logout/', logout, name='logout'),
     path('api/token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -29,6 +31,7 @@ urlpatterns = [
     path('recommendations/similarity/<int:movie_id>/', SimilarityRecommendationView.as_view(), name='similarity_recommendations'),
     path('users/<int:pk>/add-favorite-genre/', UserViewSet.as_view({'post': 'add_favorite_genre'}), name='add_favorite_genre'),
     path('users/<int:pk>/remove-favorite-genre/', UserViewSet.as_view({'post': 'remove_favorite_genre'}), name='remove_favorite_genre'),
+    path('user-rating/<int:movie_id>/', UserMovieRatingView.as_view(), name='user-movie-rating'),
     path('watched-list/add/', AddToWatchedListView.as_view(), name='add-to-watched-list'),
     path('watched-list/remove/', RemoveFromWatchedListView.as_view(), name='remove-from-watched-list'),
     path('', include(router.urls)),  # Includes all routes registered with the router

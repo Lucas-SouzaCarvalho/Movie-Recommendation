@@ -225,11 +225,31 @@ class RatingViewSet(viewsets.ModelViewSet):
             return Response({"message": "Movie rated successfully."}, status=status.HTTP_201_CREATED)
         else:
             return Response({"message": "Movie rating updated successfully."}, status=status.HTTP_200_OK)
-    
-    @action(detail=False, methods=['get'], url_path='average-ratings')
-    def average_ratings(self, request):
-        average_ratings = Rating.objects.values('movie').annotate(avg_rating=Avg('rating')).order_by('-avg_rating')
-        return Response(average_ratings, status=status.HTTP_200_OK)
+        
+class AverageRatingView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        try:
+            average_ratings = Rating.objects.values('movie').annotate(avg_rating=Avg('rating')).order_by('-avg_rating')
+            return Response(average_ratings, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class UserMovieRatingView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, movie_id):
+        try:
+            movie = get_object_or_404(Movie, id=movie_id)
+            rating = get_object_or_404(Rating, user=request.user, movie=movie)
+            serializer = RatingSerializer(rating)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Rating.DoesNotExist:
+            return Response({"error": "Rating not found for the specified movie and user"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
