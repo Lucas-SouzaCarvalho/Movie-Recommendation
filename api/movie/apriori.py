@@ -64,7 +64,7 @@ class GenreRecommendationView(APIView):
                 .filter(genres__in=favorite_genres)
                 .exclude(watchedlist__user=request.user)
                 .annotate(avg_rating=Avg('rating__rating'))
-                .order_by('-avg_rating')
+                .order_by('-avg_rating')[:20]
             )
 
             # Serialize the recommended movies
