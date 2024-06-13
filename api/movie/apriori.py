@@ -9,6 +9,7 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from movie.serializers import MovieSerializer
+from collections import Counter
 
 class AprioriRecommendationView(APIView):
     def get(self, request):
@@ -55,16 +56,29 @@ class GenreRecommendationView(APIView):
 
     def get(self, request):
         try:
+            # Get the user's watched list
+            watched_list = WatchedList.objects.filter(user=request.user)
+            watched_movies = [entry.movie for entry in watched_list]
+            
+            # Calculate the frequency of each genre in the watched list
+            genre_counter = Counter()
+            for movie in watched_movies:
+                for genre in movie.genres.all():
+                    genre_counter[genre] += 1
+            
             # Get the user's favorite genres
             favorite_genres = request.user.favorite_genres.all()
-
-            # Find movies belonging to the user's favorite genres that the user hasn't watched
+            
+            # Combine favorite genres and frequently watched genres, sorted by frequency
+            combined_genres = sorted(favorite_genres, key=lambda g: genre_counter.get(g, 0), reverse=True)
+            
+            # Find movies belonging to the combined genres that the user hasn't watched
             recommended_movies = (
                 Movie.objects
-                .filter(genres__in=favorite_genres)
+                .filter(genres__in=combined_genres)
                 .exclude(watchedlist__user=request.user)
                 .annotate(avg_rating=Avg('rating__rating'))
-                .order_by('-avg_rating')[:20]
+                .order_by('-avg_rating')[:20]  # Limit the queryset to the top 20 movies
             )
 
             # Serialize the recommended movies
