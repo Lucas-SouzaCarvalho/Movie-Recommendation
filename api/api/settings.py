@@ -143,3 +143,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True  # Use TLS for security
+EMAIL_USE_SSL = False  # SSL is not required as TLS is used
+
+EMAIL_HOST_USER = 'directorscut731@gmail.com'  # Your email address
+EMAIL_HOST_PASSWORD = 'teste123*'  # Your email account's password
+
+# Default "from" email address
+DEFAULT_FROM_EMAIL = 'directorscut731@gmail.com'

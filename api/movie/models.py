@@ -20,6 +20,7 @@ class Movie(models.Model):
     credit = models.TextField(null=True, blank=True)
     keywords = models.TextField(null=True, blank=True)
     backdrop_path = models.URLField(max_length=200, null=True, blank=True)
+    youtube_path = models.URLField(max_length=200, null=True, blank=True)
 
     def __str__(self):
         return self.title
@@ -28,6 +29,19 @@ class User(AbstractUser):
     favorite_genres = models.ManyToManyField(Genre, related_name='users', blank=True)
     groups = models.ManyToManyField(Group, related_name='auth_user_groups')
     user_permissions = models.ManyToManyField(Permission, related_name='auth_user_permissions')
+
+class FavoriteMovie(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='favorite_movies')
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, related_name='favorited_by')
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'movie'], name='unique_user_movie')
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.movie.title}"
 
 class WatchedList(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='watched')

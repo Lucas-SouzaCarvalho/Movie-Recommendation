@@ -8,12 +8,15 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Avg, Q
 from django.shortcuts import get_object_or_404
-from .models import Genre, Movie, WatchedList, Rating
+from .models import Genre, Movie, WatchedList, Rating, FavoriteMovie
 from .serializers import (
     GenreSerializer, MovieSerializer, UserRegistrationSerializer, 
-    UserSerializer, WatchedListSerializer, RatingSerializer, AddWatchedListSerializer, CustomTokenRefreshSerializer
+    UserSerializer, WatchedListSerializer, RatingSerializer, 
+    AddWatchedListSerializer, CustomTokenRefreshSerializer, 
+    PasswordResetSerializer, FavoriteMovieSerializer
 )
 
 User = get_user_model()
@@ -54,6 +57,22 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_object(self):
         # Return the current user instance
         return self.request.user
+
+    @action(detail=True, methods=['post'], url_path='change-username')
+    def change_username(self, request, pk=None):
+        user = self.get_object()
+        new_username = request.data.get('username')
+
+        if not new_username:
+            return Response({"error": "Username is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(username=new_username).exists():
+            return Response({"error": "This username is already taken"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.username = new_username
+        user.save()
+
+        return Response({"success": "Username updated successfully", "username": user.username}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='add-favorite-genre')
     def add_favorite_genre(self, request, pk=None):
@@ -158,6 +177,14 @@ class MovieViewSet(viewsets.ReadOnlyModelViewSet):
 
         return queryset.distinct()
 
+class FavoriteMovieViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = FavoriteMovieSerializer
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return FavoriteMovie.objects.filter(user=self.request.user)
+
 class WatchedListViewSet(viewsets.ModelViewSet):
     queryset = WatchedList.objects.all()
     serializer_class = WatchedListSerializer
@@ -206,25 +233,48 @@ class RatingViewSet(viewsets.ModelViewSet):
         user = self.request.user
         return Rating.objects.filter(user=user)
 
-    @action(detail=False, methods=['post'], url_path='rate-movie')
-    def rate_movie(self, request):
-        movie_id = request.data.get('movie_id')
+    @action(detail=False, methods=['post'], url_path='rate-movie/(?P<movie_id>[^/.]+)')
+    def rate_movie(self, request, movie_id=None):
         rating_value = request.data.get('rating')
 
-        if not movie_id or rating_value is None:
-            return Response({"error": "movie_id and rating are required"}, status=status.HTTP_400_BAD_REQUEST)
+        if rating_value is None:
+            return Response({"error": "Rating is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            rating_value = float(rating_value)
+            if rating_value not in [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]:
+                return Response({"error": "Rating must be one of [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0]"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "Rating must be a valid number"}, status=status.HTTP_400_BAD_REQUEST)
 
         movie = get_object_or_404(Movie, id=movie_id)
-        rating, created = Rating.objects.update_or_create(
-            user=request.user,
-            movie=movie,
-            defaults={'rating': rating_value}
-        )
+
+        with transaction.atomic():
+            rating, created = Rating.objects.update_or_create(
+                user=request.user,
+                movie=movie,
+                defaults={'rating': rating_value}
+            )
+
+            if rating_value == 5.0:
+                FavoriteMovie.objects.get_or_create(user=request.user, movie=movie)
 
         if created:
-            return Response({"message": "Movie rated successfully."}, status=status.HTTP_201_CREATED)
+            return Response({"message": "Movie rated successfully.", "rating": RatingSerializer(rating).data}, status=status.HTTP_201_CREATED)
         else:
-            return Response({"message": "Movie rating updated successfully."}, status=status.HTTP_200_OK)
+            return Response({"message": "Movie rating updated successfully.", "rating": RatingSerializer(rating).data}, status=status.HTTP_200_OK)
+        
+    @action(detail=True, methods=['get'], url_path='user-rating')
+    def user_rating(self, request, movie_id=None):
+        """Get the rating for a specific movie by the authenticated user."""
+        movie = get_object_or_404(Movie, id=movie_id)
+        
+        try:
+            rating = get_object_or_404(Rating, user=request.user, movie=movie)
+            serializer = RatingSerializer(rating)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Rating.DoesNotExist:
+            return Response({"error": "Rating not found for the specified movie and user"}, status=status.HTTP_404_NOT_FOUND)
         
 class AverageRatingView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -236,20 +286,6 @@ class AverageRatingView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-class UserMovieRatingView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, movie_id):
-        try:
-            movie = get_object_or_404(Movie, id=movie_id)
-            rating = get_object_or_404(Rating, user=request.user, movie=movie)
-            serializer = RatingSerializer(rating)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Rating.DoesNotExist:
-            return Response({"error": "Rating not found for the specified movie and user"}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserRegistrationView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -272,3 +308,13 @@ class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
         return response
+
+class PasswordResetView(generics.GenericAPIView):
+    serializer_class = PasswordResetSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"message": "Password reset link has been sent to your email."}, status=status.HTTP_200_OK)
+    
